@@ -10,9 +10,10 @@
     
     <link rel="stylesheet" href="main.css">
 </head>
-<body style="margin: 0; overflow: hidden;">
+<body>
 
     <div id="ui-layer">
+        
         <div class="header">
             <h1>Cabanyal-Go</h1>
             <div class="bypass-control">
@@ -24,25 +25,25 @@
             </div>
         </div>
 
-        <div id="location-warning" class="warning-overlay">
+        <div id="location-warning" class="warning-overlay hidden">
             <div class="warning-box">
                 <h2>No estás en la ubicación</h2>
                 <p>Acércate a las coordenadas para revelar el objeto.</p>
                 <p id="distance-info">Calculando distancia...</p>
             </div>
         </div>
+
+        <div class="bottom-nav">
+            <select id="mode-selector" class="mode-select">
+                <option value="floating">🛸 Modo: Holograma Flotante</option>
+                <option value="marker">⬛ Modo: Marcador Hiro</option>
+                <option value="hud">🎯 Modo: Anclado a Cámara</option>
+            </select>
+        </div>
+
     </div>
 
     <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;" vr-mode-ui="enabled: false">
-        
-        <a-gltf-model 
-            id="ar-model"
-            src="key.glb" 
-            position="0 -1 -3" 
-            scale="1 1 1"
-            visible="false">
-        </a-gltf-model>
-        
         <a-entity camera></a-entity>
     </a-scene>
 
