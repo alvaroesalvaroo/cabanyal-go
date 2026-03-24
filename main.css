@@ -123,3 +123,25 @@ input:checked + .slider:before { transform: translateX(16px); }
     width: 90%;
     max-width: 300px;
 }
+
+.maps-btn {
+    display: inline-block;
+    margin-top: 15px;
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    text-decoration: none;
+    border-radius: 25px;
+    font-weight: bold;
+    box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3);
+    transition: background-color 0.3s;
+}
+
+.maps-btn:active {
+    background-color: #388E3C;
+    transform: scale(0.98);
+}
+
+.maps-btn.hidden {
+    display: none;
+}

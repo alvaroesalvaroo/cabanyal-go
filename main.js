@@ -10,6 +10,8 @@ let currentDistance = null;
 
 const bypassToggle = document.getElementById('bypass-toggle');
 const warningOverlay = document.getElementById('location-warning');
+const mapsLink = document.getElementById('maps-link');
+mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${TARGET_LAT},${TARGET_LNG}`;
 const distanceInfo = document.getElementById('distance-info');
 const scene = document.querySelector('a-scene');
 const modeSelector = document.getElementById('mode-selector');
@@ -88,6 +90,9 @@ function updateVisibility(distance) {
         
         if (distance !== null) {
             distanceInfo.textContent = `Estás a ${Math.round(distance)} metros del objetivo.`;
+            mapsLink.classList.remove('hidden'); // Mostrar botón si hay distancia
+        } else {
+            mapsLink.classList.add('hidden'); // Ocultar si aún está calculando o hay error
         }
     }
 }
