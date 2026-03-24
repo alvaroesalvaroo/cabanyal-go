@@ -1,43 +1,111 @@
 // main.js
 
 // ==========================================
-// 1. VARIABLES DE CONFIGURACIÓN DE UBICACIÓN
+// 1. VARIABLES Y CONFIGURACIÓN
 // ==========================================
-// Coordenadas objetivo (Ejemplo: Zona del Cabanyal, Valencia)
 const TARGET_LAT = 39.4673;  
 const TARGET_LNG = -0.3340;  
-const RADIUS_METERS = 50; // Radio de detección en metros
+const RADIUS_METERS = 50; 
 
-// ==========================================
-// 2. VARIABLES DE ESTADO Y ELEMENTOS DEL DOM
-// ==========================================
 let isBypassed = false;
 let watchId = null;
+let currentDistance = null;
 
 const bypassToggle = document.getElementById('bypass-toggle');
 const warningOverlay = document.getElementById('location-warning');
 const distanceInfo = document.getElementById('distance-info');
-const arModel = document.getElementById('ar-model');
+const scene = document.querySelector('a-scene');
 
 // ==========================================
-// 3. LÓGICA DE BYPASS Y UI
+// 2. INYECTAR SELECTOR DE MODOS (UI INFERIOR)
+// ==========================================
+const bottomNav = document.createElement('div');
+bottomNav.innerHTML = `
+    <div style="position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: center; z-index: 1000; pointer-events: auto;">
+        <select id="mode-selector" style="padding: 12px 20px; font-size: 1rem; border-radius: 25px; border: 2px solid #4CAF50; background: rgba(0,0,0,0.85); color: white; outline: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); text-align: center; appearance: none; -webkit-appearance: none;">
+            <option value="floating">🛸 Modo: Holograma Flotante</option>
+            <option value="marker">⬛ Modo: Marcador Hiro</option>
+            <option value="hud">🎯 Modo: Anclado a Cámara</option>
+        </select>
+    </div>
+`;
+document.getElementById('ui-layer').appendChild(bottomNav);
+
+const modeSelector = document.getElementById('mode-selector');
+
+// ==========================================
+// 3. LÓGICA DE CAMBIO DE MODO AR
+// ==========================================
+// Eliminamos el modelo original estático del HTML para controlarlo con JS
+const originalModel = document.getElementById('ar-model');
+if (originalModel) originalModel.remove();
+
+let activeContainer = null; // Guardará la referencia al contenedor actual
+
+function applyARMode(mode) {
+    // 1. Limpiar el modo anterior
+    if (activeContainer) {
+        activeContainer.remove();
+    }
+
+    // 2. Crear el nuevo contenedor y modelo
+    activeContainer = document.createElement('a-entity');
+    activeContainer.setAttribute('id', 'model-container');
+    
+    const model = document.createElement('a-gltf-model');
+    model.setAttribute('src', 'key.glb');
+    model.setAttribute('scale', '1 1 1');
+
+    if (mode === 'floating') {
+        // Modo 1: Flota en unas coordenadas X,Y,Z frente a ti al abrir la app
+        model.setAttribute('position', '0 -1 -3');
+        activeContainer.appendChild(model);
+        scene.appendChild(activeContainer);
+
+    } else if (mode === 'marker') {
+        // Modo 2: Requiere que apuntes a un marcador Hiro impreso
+        activeContainer = document.createElement('a-marker');
+        activeContainer.setAttribute('preset', 'hiro');
+        activeContainer.setAttribute('id', 'model-container');
+        
+        model.setAttribute('position', '0 0 0'); // Sobre el papel
+        activeContainer.appendChild(model);
+        scene.appendChild(activeContainer);
+
+    } else if (mode === 'hud') {
+        // Modo 3: Se pega a la cámara y se mueve exactamente a donde mires
+        const camera = document.querySelector('a-entity[camera]');
+        model.setAttribute('position', '0 -0.5 -2'); 
+        activeContainer.appendChild(model);
+        camera.appendChild(activeContainer); // Lo hacemos hijo de la cámara
+    }
+
+    // 3. Refrescar visibilidad basada en el GPS/Bypass
+    updateVisibility(currentDistance);
+}
+
+// Escuchar cambios en el selector inferior
+modeSelector.addEventListener('change', (e) => applyARMode(e.target.value));
+
+// ==========================================
+// 4. LÓGICA DE BYPASS Y VISIBILIDAD
 // ==========================================
 bypassToggle.addEventListener('change', (e) => {
     isBypassed = e.target.checked;
-    updateVisibility(0); // Forzamos actualización visual
+    updateVisibility(currentDistance);
 });
 
 function updateVisibility(distance) {
+    currentDistance = distance; // Guardamos la distancia actual
     const isWithinRadius = distance !== null && distance <= RADIUS_METERS;
+    const container = document.getElementById('model-container');
 
     if (isBypassed || isWithinRadius) {
-        // Mostrar modelo, ocultar aviso
         warningOverlay.classList.add('hidden');
-        arModel.setAttribute('visible', 'true');
+        if (container) container.setAttribute('visible', 'true');
     } else {
-        // Mostrar aviso, ocultar modelo
         warningOverlay.classList.remove('hidden');
-        arModel.setAttribute('visible', 'false');
+        if (container) container.setAttribute('visible', 'false');
         
         if (distance !== null) {
             distanceInfo.textContent = `Estás a ${Math.round(distance)} metros del objetivo.`;
@@ -46,12 +114,10 @@ function updateVisibility(distance) {
 }
 
 // ==========================================
-// 4. LÓGICA DE GEOLOCALIZACIÓN
+// 5. LÓGICA DE GEOLOCALIZACIÓN (Haversine)
 // ==========================================
-
-// Fórmula de Haversine para calcular distancia en metros entre dos coordenadas
 function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; // Radio de la Tierra en metros
+    const R = 6371e3; 
     const φ1 = lat1 * Math.PI / 180;
     const φ2 = lat2 * Math.PI / 180;
     const Δφ = (lat2 - lat1) * Math.PI / 180;
@@ -71,30 +137,25 @@ function initGeolocation() {
         return;
     }
 
-    // Solicitamos y vigilamos la posición en tiempo real
     watchId = navigator.geolocation.watchPosition(
         (position) => {
-            const currentLat = position.coords.latitude;
-            const currentLng = position.coords.longitude;
-            
-            const distance = calculateDistance(currentLat, currentLng, TARGET_LAT, TARGET_LNG);
+            const distance = calculateDistance(
+                position.coords.latitude, position.coords.longitude, 
+                TARGET_LAT, TARGET_LNG
+            );
             updateVisibility(distance);
         },
         (error) => {
-            console.warn('Error GPS:', error);
-            if (error.code === 1) {
-                distanceInfo.textContent = "Por favor, permite el acceso al GPS para jugar.";
-            } else {
-                distanceInfo.textContent = "Buscando señal GPS...";
-            }
+            if (error.code === 1) distanceInfo.textContent = "Permite el acceso al GPS.";
+            else distanceInfo.textContent = "Buscando señal GPS...";
         },
-        {
-            enableHighAccuracy: true,
-            maximumAge: 0,
-            timeout: 5000
-        }
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
     );
 }
 
-// Iniciar app
+// ==========================================
+// INICIALIZACIÓN
+// ==========================================
+// Arrancamos con el modo flotante por defecto y encendemos el GPS
+applyARMode('floating');
 initGeolocation();
